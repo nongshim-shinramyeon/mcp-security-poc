@@ -1,0 +1,26 @@
+
+services:
+  proxy:
+    build: ./proxy
+    ports: 
+      - "8000:80"
+    networks:
+      - agent-net
+      - data-net
+  mcp-server:
+    build: ./mcp-server
+    volumes:
+      - ./logs:/logs
+    networks:
+      - data-net
+
+  agent:
+    build: ./agent
+    depends_on:
+      - mcp-server
+    networks:
+      - agent-net
+
+networks:
+  agent-net:
+  data-net:
