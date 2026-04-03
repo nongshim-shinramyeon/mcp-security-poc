@@ -1,19 +1,9 @@
-### Setup
-pip install uvicorn 
+### Initial Run
+Build and start containers
+> docker compose up --build
 
+Run Agent (if not auto-running)
+> docker compose run agent
 
-## Run Server
-> python -m uvicorn main:app --reload --port 8001
-
-## Test Request
-Normal empty data request.
-
-> python agent/test_request.py \
-*Expected Result : "Here is your data"*
-
-Invalid method request.
-
-> python agent/invalid_request.py \
-*Expected Result: "Unknown Method"*
-
-
+Check logs docker compose up --build
+> docker logs <proxy-container> 
