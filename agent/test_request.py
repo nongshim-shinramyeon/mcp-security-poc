@@ -2,14 +2,11 @@ import requests
 
 URL = "http://proxy/rpc"
 
-def send_request(method="get_data", params=None):
-    if params is None:
-        params = {}
-
+def send_valid_request(method="get_data"):
     payload = {
         "jsonrpc": "2.0",
         "method": method,
-        "params": params,
+        "params": {},
         "id": 1
     }
 
@@ -18,4 +15,4 @@ def send_request(method="get_data", params=None):
     print("Response:", response.json())
 
 if __name__ == "__main__":
-    send_request()
+    send_valid_request()
