@@ -113,8 +113,8 @@ Planning to schedule a Mentor meeting during 4/13 - 4/15 to recalibrate and refo
 
 ## Work to do
 
-### Integrate LLM (Llama3) to Agent Server
-### LLM Focused Rulebase - [OWASP TOP 10 for LLM](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
+- Integrate LLM (Llama3) to Agent Server
+- LLM Focused Rulebase - [OWASP TOP 10 for LLM](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 
-### Automating Drift Check on Run
-### SBOM-Based Security Check
+- Automating Drift Check on Run
+- SBOM-Based Security Check
