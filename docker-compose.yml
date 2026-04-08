@@ -2,6 +2,10 @@
 services:
   proxy:
     build: ./proxy
+    environment:
+      ALLOWED_AGENT_ID: agent-01
+      ALLOWED_DEVICE_ID: device-01
+      ALLOWED_API_KEY: demo-api-key
     ports: 
       - "8000:80"
     networks:
@@ -17,7 +21,13 @@ services:
   agent:
     build: ./agent
     depends_on:
+      - proxy
       - mcp-server
+    environment:
+      PROXY_URL: http://proxy/rpc
+      AGENT_ID: agent-01
+      DEVICE_ID: device-01
+      API_KEY: demo-api-key
     networks:
       - agent-net
 
