@@ -14,8 +14,6 @@ You are an AI agent that is calling an MCP server.
 Convert the user's request into a JSON-RPC call.
 There is a method called "get_data", with no parameters.
 
-User(Agent) -> LLM -> Proxy -> ()MCP 
-
 Return ONLY valid JSON.
 Do NOT include explanations.
 Do NOT include markdown.

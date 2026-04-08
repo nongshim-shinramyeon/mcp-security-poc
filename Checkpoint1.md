@@ -1,4 +1,4 @@
-# 🔐 Zero Trust MCP Proxy – Security Enhancements
+# Zero Trust MCP Proxy – Security Enhancements
 
 This project implements a **Zero Trust–based security layer** in front of the MCP server using a reverse proxy architecture. The goal is to provide **authentication, observability, and threat detection capabilities** for MCP traffic.
 
@@ -77,12 +77,15 @@ Proxy logs are transformed into **structured JSON format** for analysis.
 We created test scripts to simulate both **legitimate and malicious traffic**.
 
 ### Scenarios Covered
-- ✅ Normal request  
-- ❌ Unauthorized method  
-- ❌ Sensitive parameter injection  
-- ❌ Rate limit exceeded  
-- ❌ Request ID reuse (replay attempt)  
-- ❌ Missing authentication headers  
+Allowed
+- Normal request  
+
+Denied
+- Unauthorized method  
+- Sensitive parameter injection  
+- Rate limit exceeded  
+- Request ID reuse (replay attempt)  
+- Missing authentication headers  
 
 ### Outcome
 - Demonstrates **detection and blocking capability**
