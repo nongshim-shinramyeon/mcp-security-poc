@@ -1,10 +1,22 @@
-# Zero Trust MCP Proxy – Security Enhancements
+# Zero Trust MCP Proxy for LLM Integration
 
-This project implements a **Zero Trust–based security layer** in front of the MCP server using a reverse proxy architecture. The goal is to provide **authentication, observability, and threat detection capabilities** for MCP traffic.
+## Background 
+LMM agents are beginning to be granted access to internal systems via MCP, which is difficult to monitor with traditional security tools, because it uses JSON-RPC.
+
+There are two main problems. 
+- Lack of **traffic visibility** in MCP communication
+- No **central control point** for LLM-driven actions
+
+This project implements a **Zero Trust–based security layer** in front of the MCP server using reverse proxy architecture, achieving full traffic visibility
+Then, we implement rules to properly **detect**, **validate**, and **block** insecure requests for MCP traffic.
+
+## 1. Current Architecture
+
+Agent(User) -> Reverse Proxy (Nginx) -> MCP Server
 
 ---
 
-## 1. Identity & Access Control (Zero Trust)
+## 2. Identity & Access Control (Zero Trust)
 
 We enforce **strict request-level identity verification** at the proxy layer.
 
@@ -18,25 +30,6 @@ We enforce **strict request-level identity verification** at the proxy layer.
 
 ### Outcome
 - Only **verified agents** can access MCP
-- Demonstrates **Zero Trust user/device validation**
-
----
-
-## 2. TLS Termination at Proxy
-
-The proxy (Nginx) is configured as a **TLS termination point**.
-
-### Implemented Controls
-- HTTPS enabled (`listen 443 ssl`)
-- Self-signed certificate applied (for PoC)
-- All incoming traffic encrypted before reaching backend
-
-### Logging at TLS Boundary
-- Requests are logged at the TLS termination layer
-
-### Outcome
-- Visibility into **encrypted traffic at entry point**
-- Demonstrates **TLS termination observability**
 
 ---
 
@@ -47,36 +40,38 @@ Proxy logs are transformed into **structured JSON format** for analysis.
 ### Logged Fields
 - Timestamp
 - Source IP
-- `X-Agent-ID`
-- HTTP Method
-- Status Code
-- Upstream Latency
 - Rule Hit (e.g., auth failure, rate limit)
+- Request JSON
 
 ### Example Log
-```json
-{
-  "timestamp": "...",
-  "source_ip": "...",
-  "agent_id": "...",
-  "method": "POST",
-  "status": 403,
-  "latency_ms": 12,
-  "rule": "missing_api_key"
-}
+```
+2026-04-08 04:23:37,487 WARNING [RULE_HIT] RULE_4_METHOD_ALLOWLIST | ip=172.19.0.4 | detail=unknown method: invalid_method | payload={'jsonrpc': '2.0', 'method': 'invalid_method', 'params': {}, 'id': 2}
 ```
 
 ### Outcome
 - Enables **MCP traffic observability**
-- Supports downstream analysis (**SIEM / monitoring**)
+- Supports downstream analysis
 
 ---
 
-## 4. Attack & False Positive Scenarios
+## 4. Rule Implementation & Testing 
+
+We implemented rules to catch common insecure or malicious requests.
+
+- JSON RPC Version Check
+- Missing Required Fields
+- Valid Method, Param Type / Length
+- Method, Param Valid Characters
+- Allow-listed Method
+- Black-listed Keywords
+- Rate Limit
+
+We also implemented a combinational rule that utilizes many different conditions to identify anomalous behavior
+<img width="293" height="117" alt="image" src="https://github.com/user-attachments/assets/ad5b4e89-5a9f-465b-b781-4ca91e66dbd2" />
 
 We created test scripts to simulate both **legitimate and malicious traffic**.
 
-### Scenarios Covered
+### Covered Test Scenarios
 Allowed
 - Normal request  
 
@@ -85,11 +80,12 @@ Denied
 - Sensitive parameter injection  
 - Rate limit exceeded  
 - Request ID reuse (replay attempt)  
-- Missing authentication headers  
+- Missing authentication headers
+
+<img width="660" height="268" alt="image" src="https://github.com/user-attachments/assets/c51ec90d-83fd-4c78-ab85-ef91a692cc58" />
 
 ### Outcome
 - Demonstrates **detection and blocking capability**
-- Validates security rules under realistic conditions
 
 ---
 
@@ -97,29 +93,28 @@ Denied
 
 We implemented a simple **integrity monitoring mechanism**.
 
-### Monitored Files
-- `docker-compose.yml`
-- `proxy/nginx.conf`
-- `mcp-server/main.py`
-
 ### Mechanism
-- Store baseline file hashes  
+- Store baseline file hashes
+<img width="631" height="341" alt="image" src="https://github.com/user-attachments/assets/6e30cc57-1497-4331-9e48-9011db3f0b5b" />
+
 - Compare on runtime or scheduled check  
 - Trigger warning on mismatch  
 
 ### Outcome
-- Detects **unauthorized configuration changes**
-- Demonstrates **Drift detection capability**
+- Detects **configuration changes**
+<img width="714" height="496" alt="image" src="https://github.com/user-attachments/assets/2ab7d000-913c-4e8e-8a82-87cc8afa9931" />
+
+---
+## Project Notes
+
+Planning to schedule a Mentor meeting during 4/13 - 4/15 to recalibrate and refocus on future direction.
 
 ---
 
-## Summary of Security Guarantees
+## Work to do
 
-| Capability | Description |
-|----------|------------|
-| Identity Verification | Header-based agent/device authentication |
-| Zero Trust Enforcement | Deny-by-default access policy |
-| TLS Security | HTTPS termination at proxy |
-| Observability | Structured JSON logs for all traffic |
-| Threat Detection | Attack scenario simulation & blocking |
-| Integrity Monitoring | Config drift detection via hashing |
+### Integrate LLM (Llama3) to Agent Server
+### LLM Focused Rulebase - [OWASP TOP 10 for LLM](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
+
+### Automating Drift Check on Run
+### SBOM-Based Security Check
