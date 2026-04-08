@@ -1,8 +1,10 @@
-from fastapi import FastAPI, Request
-import logging
-import time
-import re
 from collections import defaultdict, deque
+import ipaddress
+import logging
+import re
+import time
+
+from fastapi import FastAPI, Request
 
 app = FastAPI()
 
@@ -10,7 +12,7 @@ app = FastAPI()
 logging.basicConfig(
     filename="/logs/mcp.log",
     level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s"
+    format="%(asctime)s %(levelname)s %(message)s",
 )
 
 # -----------------------------
@@ -20,10 +22,9 @@ logging.basicConfig(
 # 허용된 JSON-RPC method 목록
 ALLOWED_METHODS = {"get_data", "ping", "status"}
 
-# 민감 키워드 목록
-SENSITIVE_KEYWORDS = {
-    "secret", "password", "token", "admin", "internal", "root", "key"
-}
+# 민감하게 볼 key 이름과 value 단어 목록
+SENSITIVE_PARAM_KEYS = {"secret", "password", "token", "api_key", "access_token"}
+SENSITIVE_VALUE_KEYWORDS = {"secret", "password", "token"}
 
 # 너무 긴 method 방지용
 MAX_METHOD_LENGTH = 30
@@ -50,29 +51,58 @@ MAX_UNIQUE_METHODS = 5
 BURST_WINDOW_SECONDS = 5
 BURST_MAX_SAME_METHOD = 10
 
+# 프록시를 신뢰할 수 있는 내부 네트워크 대역
+TRUSTED_PROXY_NETWORKS = (
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+)
+
 # 최근 요청 상태 저장용 메모리
-request_history = defaultdict(deque)       # IP별 전체 요청 시각 기록
-failure_history = defaultdict(deque)       # IP별 실패 시각 기록
-method_history = defaultdict(deque)        # IP별 method 호출 기록 [(timestamp, method), ...]
-id_history = defaultdict(deque)            # IP별 최근 id 기록 [(timestamp, id), ...]
+request_history = defaultdict(deque)  # IP별 전체 요청 시각 기록
+failure_history = defaultdict(deque)  # IP별 실패 시각 기록
+method_history = defaultdict(deque)  # IP별 method 호출 기록 [(timestamp, method), ...]
+id_history = defaultdict(deque)  # IP별 최근 id 기록 [(timestamp, id), ...]
 
 
 # -----------------------------
 # 공통 유틸 함수
 # -----------------------------
 
+def parse_ip(value: str):
+    try:
+        return ipaddress.ip_address(value)
+    except ValueError:
+        return None
+
+
+def is_trusted_proxy(client_host: str | None) -> bool:
+    if not client_host:
+        return False
+
+    client_ip = parse_ip(client_host)
+    if client_ip is None:
+        return False
+
+    return any(client_ip in network for network in TRUSTED_PROXY_NETWORKS)
+
+
 def get_client_ip(request: Request) -> str:
     """
-    프록시 뒤에 있을 때도 가능한 한 클라이언트 식별용 값을 가져온다.
-    지금 구조에서는 proxy 컨테이너 뒤라서 실제론 내부 IP가 잡힐 수 있지만,
-    현재 프로젝트 수준에서는 이 값으로도 룰 실험 가능.
+    신뢰 가능한 프록시 뒤에 있을 때만 x-forwarded-for를 사용한다.
+    그렇지 않으면 실제 연결의 client.host를 그대로 사용한다.
     """
+    client_host = request.client.host if request.client else None
     forwarded_for = request.headers.get("x-forwarded-for")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
 
-    if request.client:
-        return request.client.host
+    if forwarded_for and is_trusted_proxy(client_host):
+        forwarded_ip = forwarded_for.split(",")[0].strip()
+        if parse_ip(forwarded_ip) is not None:
+            return forwarded_ip
+
+    if client_host:
+        return client_host
 
     return "unknown"
 
@@ -102,14 +132,14 @@ def log_rule_hit(rule_name: str, client_ip: str, detail: str, data: dict):
     )
 
 
-def jsonrpc_error_response(request_id, message: str):
+def jsonrpc_error_response(request_id, code: int, message: str):
     """
-    JSON-RPC 스타일 에러 응답
+    JSON-RPC 2.0 표준 형태의 에러 응답
     """
     return {
         "jsonrpc": "2.0",
-        "result": {"error": message},
-        "id": request_id
+        "error": {"code": code, "message": message},
+        "id": request_id,
     }
 
 
@@ -127,6 +157,32 @@ def register_request(client_ip: str, method: str, request_id, now: float):
     request_history[client_ip].append(now)
     method_history[client_ip].append((now, method))
     id_history[client_ip].append((now, request_id))
+
+
+def contains_sensitive_content(value, parent_key: str | None = None) -> bool:
+    """
+    params 내부를 재귀적으로 순회하며 민감한 key/value를 탐지한다.
+    정상 method 이름이나 일반 문장을 과하게 차단하지 않도록 params만 검사한다.
+    """
+    normalized_key = parent_key.lower() if isinstance(parent_key, str) else None
+
+    if normalized_key in SENSITIVE_PARAM_KEYS:
+        return True
+
+    if isinstance(value, dict):
+        return any(
+            contains_sensitive_content(child_value, str(child_key))
+            for child_key, child_value in value.items()
+        )
+
+    if isinstance(value, list):
+        return any(contains_sensitive_content(item, parent_key) for item in value)
+
+    if isinstance(value, str) and normalized_key is not None:
+        lowered = value.lower()
+        return any(keyword in lowered for keyword in SENSITIVE_VALUE_KEYWORDS)
+
+    return False
 
 
 # -----------------------------
@@ -193,16 +249,18 @@ def rule_6_params_is_safe_object(params):
     return True
 
 
-def rule_7_no_sensitive_keywords(data: dict):
+def rule_7_no_sensitive_keywords(params):
     """
     RULE 7:
-    payload 안에 민감 키워드(secret, password 등)가 있으면 탐지
+    params 내부에 민감 키/값 패턴이 있으면 탐지
     """
-    payload_text = str(data).lower()
-    for keyword in SENSITIVE_KEYWORDS:
-        if keyword in payload_text:
-            return False
-    return True
+    if params is None:
+        return True
+
+    if not isinstance(params, dict):
+        return False
+
+    return not contains_sensitive_content(params)
 
 
 def rule_8_string_values_length(params):
@@ -238,7 +296,7 @@ def rule_9_rate_limit(client_ip: str, now: float):
 def rule_10_behavior_anomaly(client_ip: str, method: str, request_id, now: float):
     """
     RULE 10:
-    행동 기반 이상 탐지 3종을 묶어서 검사
+    행동 기반 이상 탐지 4가지를 묶어서 검사
     - 최근 실패 과다
     - 최근 method 종류가 너무 다양함
     - 짧은 시간 같은 method 반복 폭주
@@ -259,10 +317,10 @@ def rule_10_behavior_anomaly(client_ip: str, method: str, request_id, now: float
 
     # 10-3. 동일 method 폭주
     recent_same_method_count = 0
-    for ts, m in reversed(mh):
+    for ts, saved_method in reversed(mh):
         if now - ts > BURST_WINDOW_SECONDS:
             break
-        if m == method:
+        if saved_method == method:
             recent_same_method_count += 1
 
     if recent_same_method_count >= BURST_MAX_SAME_METHOD:
@@ -293,7 +351,12 @@ async def rpc_handler(request: Request):
     except Exception:
         logging.warning(f"[INVALID_JSON] ip={client_ip}")
         register_failure(client_ip, now)
-        return jsonrpc_error_response(None, "Invalid JSON body")
+        return jsonrpc_error_response(None, -32700, "Invalid JSON body")
+
+    if not isinstance(data, dict):
+        logging.warning(f"[INVALID_PAYLOAD] ip={client_ip} payload_type={type(data).__name__}")
+        register_failure(client_ip, now)
+        return jsonrpc_error_response(None, -32600, "Request body must be a JSON object")
 
     logging.info(f"Request from ip={client_ip}: {data}")
 
@@ -309,62 +372,66 @@ async def rpc_handler(request: Request):
     if not rule_1_jsonrpc_version(data):
         log_rule_hit("RULE_1_JSONRPC_VERSION", client_ip, "jsonrpc must be '2.0'", data)
         register_failure(client_ip, now)
-        return jsonrpc_error_response(request_id, "Invalid JSON-RPC version")
+        return jsonrpc_error_response(request_id, -32600, "Invalid JSON-RPC version")
 
     # RULE 2: 필수 필드 존재 검사
     if not rule_2_missing_required_fields(data):
         log_rule_hit("RULE_2_REQUIRED_FIELDS", client_ip, "missing method or id", data)
         register_failure(client_ip, now)
-        return jsonrpc_error_response(request_id, "Missing required fields")
+        return jsonrpc_error_response(request_id, -32600, "Missing required fields")
 
     # RULE 3: method 타입/길이 검사
     if not rule_3_method_type_and_length(method):
         log_rule_hit("RULE_3_METHOD_TYPE_LENGTH", client_ip, "invalid method type or length", data)
         register_failure(client_ip, now)
-        return jsonrpc_error_response(request_id, "Invalid method format")
+        return jsonrpc_error_response(request_id, -32600, "Invalid method format")
 
     # RULE 4: 허용 method 검사
     if not rule_4_allowlisted_method(method):
         log_rule_hit("RULE_4_METHOD_ALLOWLIST", client_ip, f"unknown method: {method}", data)
         register_failure(client_ip, now)
-        return jsonrpc_error_response(request_id, "Unknown method")
+        return jsonrpc_error_response(request_id, -32601, "Unknown method")
 
     # RULE 5: method 이름 패턴 검사
     if not rule_5_method_name_pattern(method):
         log_rule_hit("RULE_5_METHOD_PATTERN", client_ip, "unsafe method pattern", data)
         register_failure(client_ip, now)
-        return jsonrpc_error_response(request_id, "Unsafe method name")
+        return jsonrpc_error_response(request_id, -32600, "Unsafe method name")
 
     # RULE 6: params 구조 검사
     if not rule_6_params_is_safe_object(params):
         log_rule_hit("RULE_6_PARAMS_SHAPE", client_ip, "params must be dict and not too large", data)
         register_failure(client_ip, now)
-        return jsonrpc_error_response(request_id, "Invalid params structure")
+        return jsonrpc_error_response(request_id, -32602, "Invalid params structure")
 
     # RULE 7: 민감 키워드 검사
-    if not rule_7_no_sensitive_keywords(data):
-        log_rule_hit("RULE_7_SENSITIVE_KEYWORD", client_ip, "sensitive keyword detected", data)
+    if not rule_7_no_sensitive_keywords(params):
+        log_rule_hit("RULE_7_SENSITIVE_KEYWORD", client_ip, "sensitive param detected", data)
         register_failure(client_ip, now)
-        return jsonrpc_error_response(request_id, "Sensitive keyword detected")
+        return jsonrpc_error_response(request_id, -32602, "Sensitive parameter detected")
 
     # RULE 8: 긴 문자열 payload 검사
     if not rule_8_string_values_length(params):
         log_rule_hit("RULE_8_STRING_LENGTH", client_ip, "param string too long", data)
         register_failure(client_ip, now)
-        return jsonrpc_error_response(request_id, "Param value too long")
+        return jsonrpc_error_response(request_id, -32602, "Param value too long")
 
     # RULE 9: 요청 수 제한
     if not rule_9_rate_limit(client_ip, now):
         log_rule_hit("RULE_9_RATE_LIMIT", client_ip, "too many requests", data)
         register_failure(client_ip, now)
-        return jsonrpc_error_response(request_id, "Rate limit exceeded")
+        return jsonrpc_error_response(request_id, -32000, "Rate limit exceeded")
 
     # RULE 10: 행동 기반 이상탐지
     behavior_ok, reason = rule_10_behavior_anomaly(client_ip, method, request_id, now)
     if not behavior_ok:
         log_rule_hit("RULE_10_BEHAVIOR_ANOMALY", client_ip, reason, data)
         register_failure(client_ip, now)
-        return jsonrpc_error_response(request_id, f"Behavior anomaly detected: {reason}")
+        return jsonrpc_error_response(
+            request_id,
+            -32001,
+            f"Behavior anomaly detected: {reason}",
+        )
 
     # 요청을 정상 요청으로 기록
     register_request(client_ip, method, request_id, now)
@@ -379,12 +446,12 @@ async def rpc_handler(request: Request):
     elif method == "status":
         result = {"message": "server is running"}
     else:
-        # allowlist에서 이미 걸러지므로 사실상 여기 도달 안 함
+        # allowlist에서 이미 걸러지므로 사실상 여기 도달하지 않는다.
         register_failure(client_ip, now)
-        return jsonrpc_error_response(request_id, "Unknown method")
+        return jsonrpc_error_response(request_id, -32601, "Unknown method")
 
     return {
         "jsonrpc": "2.0",
         "result": result,
-        "id": request_id
+        "id": request_id,
     }
