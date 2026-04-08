@@ -1,16 +1,21 @@
 from collections import defaultdict, deque
 import ipaddress
 import logging
+import os
 import re
 import time
+from typing import Optional
 
 from fastapi import FastAPI, Request
 
 app = FastAPI()
 
+LOG_PATH = "/logs/mcp.log"
+os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+
 # 로그 파일 설정
 logging.basicConfig(
-    filename="/logs/mcp.log",
+    filename=LOG_PATH,
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
 )
@@ -77,7 +82,7 @@ def parse_ip(value: str):
         return None
 
 
-def is_trusted_proxy(client_host: str | None) -> bool:
+def is_trusted_proxy(client_host: Optional[str]) -> bool:
     if not client_host:
         return False
 
@@ -159,7 +164,7 @@ def register_request(client_ip: str, method: str, request_id, now: float):
     id_history[client_ip].append((now, request_id))
 
 
-def contains_sensitive_content(value, parent_key: str | None = None) -> bool:
+def contains_sensitive_content(value, parent_key: Optional[str] = None) -> bool:
     """
     params 내부를 재귀적으로 순회하며 민감한 key/value를 탐지한다.
     정상 method 이름이나 일반 문장을 과하게 차단하지 않도록 params만 검사한다.

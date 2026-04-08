@@ -1,0 +1,73 @@
+{
+  "generated_at": "2026-04-08T04:33:49Z",
+  "tracked_patterns": [
+    "docker-compose.yml",
+    "README.md",
+    "agent/*.py",
+    "mcp-server/*.py",
+    "proxy/*",
+    "scripts/*.py"
+  ],
+  "files": [
+    {
+      "path": "agent/attack_scenarios.py",
+      "sha256": "6a9b5c47d9af8dd50bb124e77763f2e67df9784027b41a4e97615bdf61a94258",
+      "size": 1486,
+      "modified_utc": "2026-04-08T04:20:40Z"
+    },
+    {
+      "path": "agent/invalid_test_request.py",
+      "sha256": "1f605c64ed14a085548fb396bcc8c90fcc189debe5ed2319f33fd6f806604187",
+      "size": 686,
+      "modified_utc": "2026-04-08T04:26:58Z"
+    },
+    {
+      "path": "agent/test_request.py",
+      "sha256": "839552f3843adaf61f2dc7c9a69e1f6110791fd7b0f778c80ebe040505adec57",
+      "size": 675,
+      "modified_utc": "2026-04-08T04:20:40Z"
+    },
+    {
+      "path": "docker-compose.yml",
+      "sha256": "0efde39a677ff59270f938a9f30bea39296d5aa87949e091c089ecadcea60a9d",
+      "size": 630,
+      "modified_utc": "2026-04-08T04:20:40Z"
+    },
+    {
+      "path": "mcp-server/main.py",
+      "sha256": "10f87d5fc8e94c779dbc0b08aa013ba05db6cf5e3c5778207d8467f49b226c3b",
+      "size": 14181,
+      "modified_utc": "2026-04-08T04:14:54Z"
+    },
+    {
+      "path": "proxy/default.conf.template",
+      "sha256": "51a827a18ab32e5a78056c0130ed5a8a3472f6d782b09c57fcaa0cc02da7e484",
+      "size": 2030,
+      "modified_utc": "2026-04-08T04:23:12Z"
+    },
+    {
+      "path": "proxy/dockerfile",
+      "sha256": "29abde271369f4406b14a3412078f0305fe1563c6e446e3331281354c109c5e8",
+      "size": 89,
+      "modified_utc": "2026-04-08T04:20:40Z"
+    },
+    {
+      "path": "README.md",
+      "sha256": "0e5b6c8bcefaaeaded6520acf3978feb653e1afbb01e1473515176e47e9f5a21",
+      "size": 1253,
+      "modified_utc": "2026-04-08T04:31:34Z"
+    },
+    {
+      "path": "scripts/drift_check.py",
+      "sha256": "641720e1bac3866b53f22f916614cc9ca2253327c9273fe3d698848ecaea8dfc",
+      "size": 4960,
+      "modified_utc": "2026-04-08T04:32:01Z"
+    },
+    {
+      "path": "scripts/generate_sbom.py",
+      "sha256": "f736a92f42a34acb0a3f47718d0c9f9068b986654f1c2aea7ea07fd8608b63b2",
+      "size": 6376,
+      "modified_utc": "2026-04-08T04:33:07Z"
+    }
+  ]
+}

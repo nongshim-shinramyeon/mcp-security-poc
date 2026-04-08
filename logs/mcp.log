@@ -3,3 +3,14 @@ INFO:root:Request: {'jsonrpc': '2.0', 'method': 'get_data', 'params': {}, 'id': 
 INFO:root:Request: {'jsonrpc': '2.0', 'method': 'get_data', 'params': {}, 'id': 1}
 INFO:root:Request: {'jsonrpc': '2.0', 'method': 'get_data', 'params': {}, 'id': 1}
 INFO:root:Request: {'jsonrpc': '2.0', 'method': 'get_data', 'params': {}, 'id': 1}
+2026-04-08 04:23:37,477 INFO Request from ip=172.19.0.4: {'jsonrpc': '2.0', 'method': 'ping', 'params': {}, 'id': 1}
+2026-04-08 04:23:37,483 INFO Request from ip=172.19.0.3: {'jsonrpc': '2.0', 'method': 'get_data', 'params': {}, 'id': 1}
+2026-04-08 04:23:37,486 INFO Request from ip=172.19.0.4: {'jsonrpc': '2.0', 'method': 'invalid_method', 'params': {}, 'id': 2}
+2026-04-08 04:23:37,487 WARNING [RULE_HIT] RULE_4_METHOD_ALLOWLIST | ip=172.19.0.4 | detail=unknown method: invalid_method | payload={'jsonrpc': '2.0', 'method': 'invalid_method', 'params': {}, 'id': 2}
+2026-04-08 04:23:37,491 INFO Request from ip=172.19.0.4: {'jsonrpc': '2.0', 'method': 'get_data', 'params': {'token': 'demo-secret'}, 'id': 3}
+2026-04-08 04:23:37,492 WARNING [RULE_HIT] RULE_7_SENSITIVE_KEYWORD | ip=172.19.0.4 | detail=sensitive param detected | payload={'jsonrpc': '2.0', 'method': 'get_data', 'params': {'token': 'demo-secret'}, 'id': 3}
+2026-04-08 04:23:37,502 INFO Request from ip=172.19.0.4: {'jsonrpc': '2.0', 'method': 'ping', 'params': {}, 'id': 999}
+2026-04-08 04:23:37,508 INFO Request from ip=172.19.0.4: {'jsonrpc': '2.0', 'method': 'ping', 'params': {}, 'id': 999}
+2026-04-08 04:23:37,515 INFO Request from ip=172.19.0.4: {'jsonrpc': '2.0', 'method': 'ping', 'params': {}, 'id': 999}
+2026-04-08 04:23:37,520 INFO Request from ip=172.19.0.4: {'jsonrpc': '2.0', 'method': 'ping', 'params': {}, 'id': 999}
+2026-04-08 04:23:37,522 WARNING [RULE_HIT] RULE_10_BEHAVIOR_ANOMALY | ip=172.19.0.4 | detail=reused_request_id | payload={'jsonrpc': '2.0', 'method': 'ping', 'params': {}, 'id': 999}
