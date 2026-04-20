@@ -101,3 +101,49 @@ Implemented test scenarios to validate detection logic:
 
 ```bash
 docker compose up --build
+
+The proxy server will start at:
+
+```
+https://localhost:8080
+```
+
+## Example Request (JSON-RPC)
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "get_data",
+  "params": { "id": 1 },
+  "id": 1
+}
+```
+
+## Required Headers
+
+```
+X-Agent-ID: test-agent
+X-Device-ID: device-001
+X-API-Key: secret-key
+```
+
+## Test Scenarios
+
+Run provided scripts to simulate normal and malicious traffic:
+
+```bash
+python agent/test_request.py
+python agent/attack_scenarios.py
+```
+
+## Expected Behavior
+
+- Valid requests → forwarded to MCP server  
+- Invalid headers → blocked  
+- Malicious patterns → detected and logged  
+- Drift detected → warning triggered
+
+
+
+
+
