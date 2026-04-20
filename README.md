@@ -1,47 +1,103 @@
-### Initial Run
-Build and start containers
-> docker compose up --build
+# MCP Security Proxy with Zero Trust Architecture
 
-Run Agent (if not auto-running)
-> docker compose run agent
+## Overview
+This project implements a **Zero Trust security layer** in front of an MCP (Model Context Protocol) server.  
+It focuses on **authentication, traffic validation, observability, and attack detection** for JSON-RPC-based communication.
 
-Check logs docker compose up --build
-> docker logs <proxy-container> 
+The system is designed to simulate real-world security threats and demonstrate how they can be detected and mitigated in a production-like environment.
 
-### Zero Trust Demo
-The proxy now validates `X-Agent-ID`, `X-Device-ID`, and `X-API-Key` before forwarding `/rpc` traffic.
+---
 
-Default demo values:
-- `AGENT_ID=agent-01`
-- `DEVICE_ID=device-01`
-- `API_KEY=demo-api-key`
+## Architecture
+Client → Nginx (TLS Termination & Proxy) → FastAPI MCP Server
 
-Run a valid request from the agent container:
-> docker compose run --rm agent python test_request.py
+- **Nginx**: TLS termination, request filtering, logging
+- **FastAPI**: JSON-RPC handling and rule validation
+- **Docker Compose**: Service orchestration
 
-Run attack and detection scenarios:
-> docker compose run --rm agent python attack_scenarios.py
+---
 
-Check structured proxy logs:
-> docker compose logs proxy
+## Key Features
 
-### Drift Detection
-Create the initial drift baseline:
-> python scripts/drift_check.py baseline
+### 1. Zero Trust Authentication & Identification
+- Enforced custom headers:
+  - `X-Agent-ID`
+  - `X-Device-ID`
+  - `X-API-Key`
+- Only authorized agents/devices can access the MCP server
+- Implemented at proxy and application layers
 
-Check for configuration drift and save a report:
-> python scripts/drift_check.py check
+**Goal:** Demonstrate Zero Trust-based user/device verification
 
-The baseline is stored in `security-baseline/drift_baseline.json` and reports are written to `artifacts/drift/`.
+---
 
-### SBOM Generation
-Build the images first:
-> docker compose build
+### 2. TLS Termination & Secure Communication
+- Nginx configured as HTTPS endpoint
+- Self-signed certificate applied
+- All incoming traffic is encrypted before reaching backend
 
-Generate SBOM files for all services:
-> python scripts/generate_sbom.py
+**Goal:** Secure entry point and enable traffic inspection at TLS boundary
 
-Generate SBOM for a single service:
-> python scripts/generate_sbom.py --service mcp-server
+---
 
-SBOM files are written to `artifacts/sbom/`.
+### 3. Structured Observability (JSON Logging)
+- All requests logged in structured JSON format:
+  - timestamp
+  - source IP
+  - agent ID
+  - method
+  - status
+  - upstream latency
+  - rule hit (true/false)
+
+**Goal:** Provide full visibility into MCP traffic
+
+---
+
+### 4. Attack Simulation & Detection
+Implemented test scenarios to validate detection logic:
+
+- Normal request
+- Unauthorized method
+- Sensitive parameter injection
+- Rate limit exceeded
+- Request ID reuse (replay attack)
+- Missing authentication headers
+
+**Goal:** Demonstrate detection and blocking mechanisms
+
+---
+
+### 5. Configuration Drift Detection
+- Stored baseline hashes for:
+  - `docker-compose.yml`
+  - `proxy/nginx.conf`
+  - `mcp-server/main.py`
+- Compared runtime files with baseline
+- Triggered warning on mismatch
+
+**Goal:** Detect unauthorized configuration changes (Drift)
+
+---
+
+## Tech Stack
+- Python (FastAPI)
+- Nginx
+- Docker / Docker Compose
+- JSON-RPC 2.0
+
+---
+
+## My Contribution
+- Designed Zero Trust authentication mechanism
+- Implemented request validation rules for JSON-RPC traffic
+- Built attack simulation scripts for security testing
+- Configured TLS termination and structured logging in Nginx
+- Implemented configuration drift detection logic
+
+---
+
+## How to Run
+
+```bash
+docker compose up --build
