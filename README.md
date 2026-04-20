@@ -110,7 +110,8 @@ https://localhost:8080
 
 ## Example Request (JSON-RPC)
 
-```json
+```
+json
 {
   "jsonrpc": "2.0",
   "method": "get_data",
